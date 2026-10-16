@@ -5,15 +5,20 @@ import (
 	"fmt"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	idpv1alpha1 "github.com/ekrmcakir/ephemeral-env-operator/api/v1alpha1"
 )
@@ -247,10 +252,29 @@ func (r *PreviewEnvironmentReconciler) setCondition(previewEnv *idpv1alpha1.Prev
 	})
 }
 
-// SetupWithManager sets up the controller with the Manager
+// SetupWithManager sets up the controller with the Manager and watches sub-resources
 func (r *PreviewEnvironmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Map child resource events back to the owning PreviewEnvironment CR
+	mapFn := func(ctx context.Context, obj client.Object) []reconcile.Request {
+		labels := obj.GetLabels()
+		if envName, ok := labels[EnvironmentLabelKey]; ok && envName != "" {
+			ns := obj.GetNamespace()
+			// Check if annotation contains the origin namespace of the CR
+			if originNs, hasNs := obj.GetAnnotations()["idp.cloudnative.io/owner-namespace"]; hasNs && originNs != "" {
+				ns = originNs
+			}
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{Namespace: ns, Name: envName}},
+			}
+		}
+		return nil
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&idpv1alpha1.PreviewEnvironment{}).
 		Owns(&corev1.Namespace{}).
+		Watches(&appsv1.Deployment{}, handler.EnqueueRequestsFromMapFunc(mapFn)).
+		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(mapFn)).
+		Watches(&networkingv1.Ingress{}, handler.EnqueueRequestsFromMapFunc(mapFn)).
 		Complete(r)
 }

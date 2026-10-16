@@ -29,3 +29,6 @@ rbac:
 serviceAccount:
   create: true
   name: ""
+
+leaderElection:
+  enabled: true

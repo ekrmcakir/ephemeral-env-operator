@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -94,6 +95,32 @@ func (r *PreviewEnvironmentReconciler) reconcileWorkloads(ctx context.Context, p
 				return totalReplicas, readyReplicas, err
 			}
 		} else {
+			// Drift Detection & Spec Synchronization: update deployment if spec changed
+			needsUpdate := false
+			if deploy.Spec.Replicas == nil || *deploy.Spec.Replicas != replicas {
+				deploy.Spec.Replicas = &replicas
+				needsUpdate = true
+			}
+			if len(deploy.Spec.Template.Spec.Containers) > 0 {
+				c := &deploy.Spec.Template.Spec.Containers[0]
+				if c.Image != w.Image {
+					c.Image = w.Image
+					needsUpdate = true
+				}
+				if len(c.Ports) > 0 && c.Ports[0].ContainerPort != w.Port {
+					c.Ports[0].ContainerPort = w.Port
+					needsUpdate = true
+				}
+				if !reflect.DeepEqual(c.Env, w.Env) {
+					c.Env = w.Env
+					needsUpdate = true
+				}
+			}
+			if needsUpdate {
+				if err := r.Update(ctx, deploy); err != nil {
+					return totalReplicas, readyReplicas, err
+				}
+			}
 			readyReplicas += deploy.Status.ReadyReplicas
 		}
 
@@ -129,6 +156,15 @@ func (r *PreviewEnvironmentReconciler) reconcileWorkloads(ctx context.Context, p
 				}
 			} else {
 				return totalReplicas, readyReplicas, err
+			}
+		} else {
+			// Service port drift detection
+			if len(svc.Spec.Ports) > 0 && svc.Spec.Ports[0].Port != w.Port {
+				svc.Spec.Ports[0].Port = w.Port
+				svc.Spec.Ports[0].TargetPort = intstr.FromInt(int(w.Port))
+				if err := r.Update(ctx, svc); err != nil {
+					return totalReplicas, readyReplicas, err
+				}
 			}
 		}
 	}

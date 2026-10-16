@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 	"text/template"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -118,9 +120,25 @@ func (r *PreviewEnvironmentReconciler) reconcileIngress(ctx context.Context, pre
 }
 
 type hostContext struct {
-	PRNumber int32
-	Branch   string
-	Repo     string
+	PRNumber  int32
+	Branch    string
+	RawBranch string
+	Repo      string
+}
+
+func sanitizeDNSLabel(s string) string {
+	s = strings.ToLower(s)
+	reg := regexp.MustCompile(`[^a-z0-9-]+`)
+	s = reg.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if len(s) > 63 {
+		s = s[:63]
+		s = strings.TrimRight(s, "-")
+	}
+	if s == "" {
+		return "env"
+	}
+	return s
 }
 
 func (r *PreviewEnvironmentReconciler) renderHost(previewEnv *idpv1alpha1.PreviewEnvironment) (string, error) {
@@ -136,9 +154,10 @@ func (r *PreviewEnvironmentReconciler) renderHost(previewEnv *idpv1alpha1.Previe
 
 	var buf bytes.Buffer
 	ctx := hostContext{
-		PRNumber: previewEnv.Spec.PRNumber,
-		Branch:   previewEnv.Spec.Branch,
-		Repo:     previewEnv.Spec.Repository,
+		PRNumber:  previewEnv.Spec.PRNumber,
+		Branch:    sanitizeDNSLabel(previewEnv.Spec.Branch),
+		RawBranch: previewEnv.Spec.Branch,
+		Repo:      previewEnv.Spec.Repository,
 	}
 
 	if err := tmpl.Execute(&buf, ctx); err != nil {

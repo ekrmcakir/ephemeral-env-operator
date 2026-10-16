@@ -29,9 +29,7 @@ func (r *PreviewEnvironmentReconciler) reconcileNamespace(ctx context.Context, p
 						ManagedByLabelKey:   ManagedByLabelVal,
 						EnvironmentLabelKey: previewEnv.Name,
 						PRLabelKey:          fmt.Sprintf("%d", previewEnv.Spec.PRNumber),
-						"pod-security.kubernetes.io/enforce": "baseline",
-						"pod-security.kubernetes.io/audit":   "restricted",
-						"pod-security.kubernetes.io/warn":    "restricted",
+						"pod-security.kubernetes.io/enforce": "privileged",
 					},
 					Annotations: map[string]string{
 						"idp.cloudnative.io/branch":     previewEnv.Spec.Branch,
@@ -53,6 +51,7 @@ func (r *PreviewEnvironmentReconciler) reconcileNamespace(ctx context.Context, p
 	ns.Labels[ManagedByLabelKey] = ManagedByLabelVal
 	ns.Labels[EnvironmentLabelKey] = previewEnv.Name
 	ns.Labels[PRLabelKey] = fmt.Sprintf("%d", previewEnv.Spec.PRNumber)
+	ns.Labels["pod-security.kubernetes.io/enforce"] = "privileged"
 
 	return r.Update(ctx, ns)
 }

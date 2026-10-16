@@ -115,3 +115,27 @@ func TestConditionManagement(t *testing.T) {
 		t.Errorf("expected status False, got %v", env.Status.Conditions[0].Status)
 	}
 }
+
+func TestSanitizeDNSLabel(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"feature/checkout-v2", "feature-checkout-v2"},
+		{"fix/login_typo.v1", "fix-login-typo-v1"},
+		{"UPPER_CASE_BRANCH", "upper-case-branch"},
+		{"---leading-trailing---", "leading-trailing"},
+		{"", "env"},
+		{
+			"very-long-branch-name-that-exceeds-the-maximum-sixty-three-characters-limit-allowed-by-rfc1123",
+			"very-long-branch-name-that-exceeds-the-maximum-sixty-three-char",
+		},
+	}
+
+	for _, tt := range tests {
+		got := sanitizeDNSLabel(tt.input)
+		if got != tt.expected {
+			t.Errorf("sanitizeDNSLabel(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}

@@ -28,6 +28,7 @@ spec:
         - --metrics-bind-address=:{{ .Values.metrics.port }}
         - --health-probe-bind-address=:{{ .Values.healthProbes.port }}
         - --ttl-gc-interval={{ .Values.ttlGarbageCollection.interval }}
+        - --leader-elect={{ .Values.leaderElection.enabled }}
         ports:
         - containerPort: {{ .Values.metrics.port }}
           name: metrics
