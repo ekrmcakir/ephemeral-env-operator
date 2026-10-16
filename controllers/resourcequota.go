@@ -63,5 +63,45 @@ func (r *PreviewEnvironmentReconciler) reconcileResourceQuota(ctx context.Contex
 	}
 
 	quota.Spec.Hard = hardLimits
-	return r.Update(ctx, quota)
+	if err := r.Update(ctx, quota); err != nil {
+		return err
+	}
+
+	// Also ensure LimitRange exists so any container gets default bounds
+	limitRangeName := fmt.Sprintf("%s-limitrange", targetNamespace)
+	lr := &corev1.LimitRange{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: targetNamespace, Name: limitRangeName}, lr)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			newLR := &corev1.LimitRange{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      limitRangeName,
+					Namespace: targetNamespace,
+					Labels: map[string]string{
+						ManagedByLabelKey:   ManagedByLabelVal,
+						EnvironmentLabelKey: previewEnv.Name,
+					},
+				},
+				Spec: corev1.LimitRangeSpec{
+					Limits: []corev1.LimitRangeItem{
+						{
+							Type: corev1.LimitTypeContainer,
+							Default: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("200m"),
+								corev1.ResourceMemory: resource.MustParse("256Mi"),
+							},
+							DefaultRequest: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("50m"),
+								corev1.ResourceMemory: resource.MustParse("64Mi"),
+							},
+						},
+					},
+				},
+			}
+			return r.Create(ctx, newLR)
+		}
+		return err
+	}
+
+	return nil
 }
