@@ -1,0 +1,32 @@
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}
+rules:
+- apiGroups: ["idp.cloudnative.io"]
+  resources: ["previewenvironments", "previewenvironments/status", "previewenvironments/finalizers"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces", "services", "configmaps", "secrets", "resourcequotas", "limitranges", "events"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["*"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses", "networkpolicies"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}
+subjects:
+- kind: ServiceAccount
+  name: {{ default .Release.Name .Values.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

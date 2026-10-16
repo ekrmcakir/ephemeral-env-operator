@@ -1,0 +1,12 @@
+apiVersion: idp.cloudnative.io/v1alpha1
+kind: PreviewEnvironment
+metadata:
+  name: preview-pr-42
+spec:
+  branch: fix/login-typo
+  prNumber: 42
+  ttl: 2h
+  workloads:
+  - name: frontend
+    image: nginx:alpine
+    port: 80

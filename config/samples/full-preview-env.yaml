@@ -1,0 +1,49 @@
+apiVersion: idp.cloudnative.io/v1alpha1
+kind: PreviewEnvironment
+metadata:
+  name: preview-pr-104
+spec:
+  branch: feature/checkout-v2
+  prNumber: 104
+  repository: github.com/ekrmcakir/ecommerce-core
+  author: ekrmcakir
+  ttl: 4h
+  autoCleanup: true
+  isolatedNetwork: true
+  ingress:
+    enabled: true
+    hostTemplate: "pr-{{.PRNumber}}.preview.cloudnative.io"
+    ingressClassName: nginx
+    path: /
+    tls: true
+  resources:
+    cpuLimit: "3000m"
+    memoryLimit: "6Gi"
+    maxPods: 20
+  mockDatabase:
+    engine: postgres
+    databaseName: checkout_preview
+    ephemeral: true
+  workloads:
+  - name: checkout-api
+    image: ghcr.io/ekrmcakir/checkout-api:v2.4.0
+    port: 8080
+    replicas: 2
+    env:
+    - name: DB_HOST
+      value: database
+    - name: DB_NAME
+      value: checkout_preview
+    - name: DB_USER
+      value: preview
+    - name: DB_PASSWORD
+      value: previewpass
+    - name: LOG_LEVEL
+      value: debug
+  - name: payment-gateway-mock
+    image: ghcr.io/ekrmcakir/payment-mock:v1.1.0
+    port: 9000
+    replicas: 1
+    env:
+    - name: MOCK_MODE
+      value: "true"

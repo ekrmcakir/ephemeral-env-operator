@@ -1,0 +1,24 @@
+apiVersion: idp.cloudnative.io/v1alpha1
+kind: PreviewEnvironment
+metadata:
+  name: preview-pr-77
+spec:
+  branch: feature/recommendation-engine
+  prNumber: 77
+  repository: github.com/ekrmcakir/ai-platform
+  author: ekrmcakir
+  ttl: 8h
+  mockDatabase:
+    engine: redis
+    ephemeral: true
+  workloads:
+  - name: api-gateway
+    image: traefik:v3.0
+    port: 80
+  - name: model-serving
+    image: python:3.11-slim
+    port: 5000
+    replicas: 2
+  - name: cache-service
+    image: redis:7-alpine
+    port: 6379

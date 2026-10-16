@@ -1,0 +1,44 @@
+name: CI / Build & Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Unit Tests & Code Quality
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Source
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+
+    - name: Verify Go Modules
+      run: go mod verify
+
+    - name: Run Go Vet
+      run: go vet ./...
+
+    - name: Run Unit Tests with Coverage
+      run: go test ./... -v -race -coverprofile=coverage.out
+
+    - name: Build Binary
+      run: go build -v -o bin/manager cmd/main.go
+
+  lint:
+    name: Lint & Schema Verification
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Source
+      uses: actions/checkout@v4
+
+    - name: Validate CRD YAML
+      run: |
+        python3 -c "import yaml; yaml.safe_load(open('config/crd/bases/idp.cloudnative.io_previewenvironments.yaml'))"
